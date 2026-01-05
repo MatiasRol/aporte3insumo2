@@ -1,8 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, PanResponder, StyleSheet, Text, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
+const CARD_WIDTH = width * 0.85;
+const CARD_HEIGHT = height * 0.65;
 
 interface Item {
   id: number;
@@ -20,6 +22,11 @@ interface SwipeCardProps {
 export default function SwipeCard({ item, onSwipeLeft, onSwipeRight, isTop }: SwipeCardProps) {
   const position = useRef(new Animated.ValueXY()).current;
   
+  // Resetear posición cuando cambia el item
+  useEffect(() => {
+    position.setValue({ x: 0, y: 0 });
+  }, [item.id]);
+
   const rotate = position.x.interpolate({
     inputRange: [-width / 2, 0, width / 2],
     outputRange: ['-10deg', '0deg', '10deg'],
@@ -68,7 +75,6 @@ export default function SwipeCard({ item, onSwipeLeft, onSwipeRight, isTop }: Sw
       } else {
         onSwipeLeft(item);
       }
-      position.setValue({ x: 0, y: 0 });
     });
   };
 
@@ -86,33 +92,40 @@ export default function SwipeCard({ item, onSwipeLeft, onSwipeRight, isTop }: Sw
 
   return (
     <Animated.View
-      style={[styles.card, cardStyle, !isTop && styles.cardBehind]}
+      style={[styles.cardWrapper, cardStyle]}
       {...(isTop ? panResponder.panHandlers : {})}
     >
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardDescription}>{item.description}</Text>
-      </View>
+      <View style={[styles.card, !isTop && styles.cardBehind]}>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardDescription}>{item.description}</Text>
+        </View>
 
-      {isTop && (
-        <>
-          <Animated.View style={[styles.likeLabel, { opacity: likeOpacity }]}>
-            <Text style={styles.likeLabelText}>ME GUSTA</Text>
-          </Animated.View>
-          <Animated.View style={[styles.nopeLabel, { opacity: nopeOpacity }]}>
-            <Text style={styles.nopeLabelText}>NO</Text>
-          </Animated.View>
-        </>
-      )}
+        {isTop && (
+          <>
+            <Animated.View style={[styles.likeLabel, { opacity: likeOpacity }]}>
+              <Text style={styles.likeLabelText}>ME GUSTA</Text>
+            </Animated.View>
+            <Animated.View style={[styles.nopeLabel, { opacity: nopeOpacity }]}>
+              <Text style={styles.nopeLabelText}>NO</Text>
+            </Animated.View>
+          </>
+        )}
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardWrapper: {
     position: 'absolute',
-    width: width * 0.85,
-    height: height * 0.6,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    marginLeft: 30,
+  },
+  card: {
+    width: '100%',
+    height: '100%',
     backgroundColor: '#fff',
     borderRadius: 20,
     shadowColor: '#000',
@@ -136,6 +149,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 10,
+    textAlign: 'center',
   },
   cardDescription: {
     fontSize: 18,

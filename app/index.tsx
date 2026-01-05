@@ -1,9 +1,7 @@
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import SwipeCard from '../components/SwipeCard';
-
-const { width, height } = Dimensions.get('window');
 
 interface Item {
   id: number;
@@ -22,29 +20,27 @@ const ITEMS_DATA: Item[] = [
   { id: 8, title: 'Imagen 8', description: 'Descripción del item 8' },
 ];
 
-// Declaración global para TypeScript
 declare global {
   var likedItems: Item[];
 }
 
 export default function Index() {
-  const [items, setItems] = useState<Item[]>(ITEMS_DATA);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [likedItems, setLikedItems] = useState<Item[]>([]);
 
   const handleSwipeRight = (item: Item) => {
     const newLiked = [...likedItems, item];
     setLikedItems(newLiked);
-    // Guardar en almacenamiento global
     global.likedItems = newLiked;
-    setItems((prevItems) => prevItems.filter((i) => i.id !== item.id));
+    setCurrentIndex(currentIndex + 1);
   };
 
   const handleSwipeLeft = (item: Item) => {
-    setItems((prevItems) => prevItems.filter((i) => i.id !== item.id));
+    setCurrentIndex(currentIndex + 1);
   };
 
   const renderCards = () => {
-    if (items.length === 0) {
+    if (currentIndex >= ITEMS_DATA.length) {
       return (
         <View style={styles.noMoreCards}>
           <Text style={styles.noMoreCardsText}>No hay más items</Text>
@@ -52,18 +48,19 @@ export default function Index() {
       );
     }
 
-    return items
-      .slice(0, 2)
-      .reverse()
-      .map((item, index) => (
+    const visibleCards = ITEMS_DATA.slice(currentIndex, currentIndex + 2);
+    
+    return visibleCards
+      .map((item, index, arr) => (
         <SwipeCard
-          key={item.id}
+          key={`${item.id}-${currentIndex}`}
           item={item}
           onSwipeLeft={handleSwipeLeft}
           onSwipeRight={handleSwipeRight}
-          isTop={index === 1}
+          isTop={index === 0}
         />
-      ));
+      ))
+      .reverse();
   };
 
   return (
