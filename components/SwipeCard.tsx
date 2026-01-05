@@ -1,25 +1,25 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, PanResponder, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated, PanResponder, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
 const CARD_WIDTH = width * 0.85;
 const CARD_HEIGHT = height * 0.65;
 
-interface Item {
+export interface Item {
   id: number;
   title: string;
   description: string;
 }
 
-interface SwipeCardProps {
+export interface SwipeCardProps {
   item: Item;
   onSwipeLeft: (item: Item) => void;
   onSwipeRight: (item: Item) => void;
   isTop: boolean;
 }
 
-export default function SwipeCard({ item, onSwipeLeft, onSwipeRight, isTop }: SwipeCardProps) {
+const SwipeCard: React.FC<SwipeCardProps> = ({ item, onSwipeLeft, onSwipeRight, isTop }) => {
   const position = useRef(new Animated.ValueXY()).current;
   
   // Resetear posición cuando cambia el item
@@ -114,14 +114,16 @@ export default function SwipeCard({ item, onSwipeLeft, onSwipeRight, isTop }: Sw
       </View>
     </Animated.View>
   );
-}
+};
+
+export default SwipeCard;
 
 const styles = StyleSheet.create({
   cardWrapper: {
     position: 'absolute',
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    marginLeft: 30,
+    marginLeft: 20,
   },
   card: {
     width: '100%',

@@ -1,6 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 import SwipeCard from '../components/SwipeCard';
 
 interface Item {
@@ -22,21 +22,41 @@ const ITEMS_DATA: Item[] = [
 
 declare global {
   var likedItems: Item[];
+  var currentIndex: number;
 }
 
 export default function Index() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [likedItems, setLikedItems] = useState<Item[]>([]);
 
+  // Cargar estado guardado al montar el componente
+  useEffect(() => {
+    if ((global as any).likedItems) {
+      setLikedItems((global as any).likedItems);
+    }
+    if (typeof (global as any).currentIndex === 'number') {
+      setCurrentIndex((global as any).currentIndex);
+    }
+  }, []);
+
   const handleSwipeRight = (item: Item) => {
     const newLiked = [...likedItems, item];
+    const newIndex = currentIndex + 1;
+    
     setLikedItems(newLiked);
-    global.likedItems = newLiked;
-    setCurrentIndex(currentIndex + 1);
+    setCurrentIndex(newIndex);
+    
+    // Guardar en almacenamiento global
+    (global as any).likedItems = newLiked;
+    (global as any).currentIndex = newIndex;
   };
 
   const handleSwipeLeft = (item: Item) => {
-    setCurrentIndex(currentIndex + 1);
+    const newIndex = currentIndex + 1;
+    setCurrentIndex(newIndex);
+    
+    // Guardar índice en almacenamiento global
+    (global as any).currentIndex = newIndex;
   };
 
   const renderCards = () => {
