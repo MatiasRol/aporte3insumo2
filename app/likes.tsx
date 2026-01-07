@@ -1,46 +1,58 @@
-import { Link } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { Dimensions, FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { Photo } from './index';
 
-interface Item {
-  id: number;
-  title: string;
-  description: string;
-}
+const { width } = Dimensions.get('window');
+const imageSize = (width - 45) / 2; // 2 columnas con espaciado
 
 export default function Likes() {
-  const [likedItems, setLikedItems] = useState<Item[]>([]);
+  const [likedPhotos, setLikedPhotos] = useState<Photo[]>([]);
 
-  useEffect(() => {
-    // Cargar los items guardados
-    const globalLiked = (global as any).likedItems;
-    if (globalLiked) {
-      setLikedItems(globalLiked);
+  useFocusEffect(
+    useCallback(() => {
+      loadLikedPhotos();
+    }, [])
+  );
+
+  const loadLikedPhotos = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('likedPhotos');
+      const liked: Photo[] = stored ? JSON.parse(stored) : [];
+      setLikedPhotos(liked);
+    } catch (error) {
+      console.error('Error cargando likes:', error);
     }
-  }, []);
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Link href="/" style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Volver</Text>
+        <Link href="/gallery" style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Galería</Text>
         </Link>
-        <Text style={styles.headerTitle}>Items que me gustan</Text>
+        <Text style={styles.headerTitle}>Mis Favoritas</Text>
+        <View style={styles.placeholder} />
       </View>
 
       <FlatList
-        data={likedItems}
-        keyExtractor={(item) => item.id.toString()}
+        data={likedPhotos}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        contentContainerStyle={styles.grid}
         renderItem={({ item }) => (
-          <View style={styles.likedCard}>
-            <Text style={styles.likedCardTitle}>{item.title}</Text>
-            <Text style={styles.likedCardDescription}>{item.description}</Text>
+          <View style={styles.photoCard}>
+            <Image source={{ uri: item.uri }} style={styles.photo} />
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyList}>
             <Text style={styles.emptyListText}>
-              Aún no has dado like a ningún item
+              Aún no has dado like a ninguna foto
+            </Text>
+            <Text style={styles.emptyListSubText}>
+              Desliza fotos a la derecha para agregarlas aquí
             </Text>
           </View>
         }
@@ -62,12 +74,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
-    marginRight: 15,
+    padding: 5,
   },
   backButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#00bfa5',
     fontWeight: '600',
   },
@@ -76,36 +89,45 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  likedCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
+  placeholder: {
+    width: 60,
+  },
+  grid: {
+    padding: 15,
+  },
+  photoCard: {
+    width: imageSize,
+    height: imageSize,
+    margin: 5,
     borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 3,
   },
-  likedCardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  likedCardDescription: {
-    fontSize: 16,
-    color: '#666',
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   emptyList: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 100,
+    paddingHorizontal: 40,
   },
   emptyListText: {
     fontSize: 18,
     color: '#999',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  emptyListSubText: {
+    fontSize: 14,
+    color: '#bbb',
     textAlign: 'center',
   },
 });

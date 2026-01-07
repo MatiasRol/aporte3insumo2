@@ -1,157 +1,215 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import SwipeCard from '../components/SwipeCard';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface Item {
-  id: number;
-  title: string;
-  description: string;
-}
-
-const ITEMS_DATA: Item[] = [
-  { id: 1, title: 'Imagen 1', description: 'Descripción del item 1' },
-  { id: 2, title: 'Imagen 2', description: 'Descripción del item 2' },
-  { id: 3, title: 'Imagen 3', description: 'Descripción del item 3' },
-  { id: 4, title: 'Imagen 4', description: 'Descripción del item 4' },
-  { id: 5, title: 'Imagen 5', description: 'Descripción del item 5' },
-  { id: 6, title: 'Imagen 6', description: 'Descripción del item 6' },
-  { id: 7, title: 'Imagen 7', description: 'Descripción del item 7' },
-  { id: 8, title: 'Imagen 8', description: 'Descripción del item 8' },
-];
-
-declare global {
-  var likedItems: Item[];
-  var currentIndex: number;
+export interface Photo {
+  id: string;
+  uri: string;
+  timestamp: number;
+  savedToGallery: boolean;
+  isLiked: boolean;
 }
 
 export default function Index() {
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [likedItems, setLikedItems] = useState<Item[]>([]);
+  const [facing, setFacing] = useState<CameraType>('back');
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<any>(null);
+  const router = useRouter();
 
-  // Cargar estado guardado al montar el componente
   useEffect(() => {
-    if ((global as any).likedItems) {
-      setLikedItems((global as any).likedItems);
-    }
-    if (typeof (global as any).currentIndex === 'number') {
-      setCurrentIndex((global as any).currentIndex);
-    }
+    (async () => {
+      if (!permission?.granted) {
+        await requestPermission();
+      }
+    })();
   }, []);
 
-  const handleSwipeRight = (item: Item) => {
-    const newLiked = [...likedItems, item];
-    const newIndex = currentIndex + 1;
-    
-    setLikedItems(newLiked);
-    setCurrentIndex(newIndex);
-    
-    // Guardar en almacenamiento global
-    (global as any).likedItems = newLiked;
-    (global as any).currentIndex = newIndex;
-  };
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 1,
+        });
 
-  const handleSwipeLeft = (item: Item) => {
-    const newIndex = currentIndex + 1;
-    setCurrentIndex(newIndex);
-    
-    // Guardar índice en almacenamiento global
-    (global as any).currentIndex = newIndex;
-  };
+        const newPhoto: Photo = {
+          id: Date.now().toString(),
+          uri: photo.uri,
+          timestamp: Date.now(),
+          savedToGallery: false,
+          isLiked: false,
+        };
 
-  const renderCards = () => {
-    if (currentIndex >= ITEMS_DATA.length) {
-      return (
-        <View style={styles.noMoreCards}>
-          <Text style={styles.noMoreCardsText}>No hay más items</Text>
-        </View>
-      );
+        const stored = await AsyncStorage.getItem('pendingPhotos');
+        const pendingPhotos: Photo[] = stored ? JSON.parse(stored) : [];
+
+        // ✅ ORDEN CRONOLÓGICO CORRECTO
+        pendingPhotos.push(newPhoto);
+
+        await AsyncStorage.setItem(
+          'pendingPhotos',
+          JSON.stringify(pendingPhotos)
+        );
+
+        // Reset índice de galería
+        await AsyncStorage.setItem('currentGalleryIndex', '0');
+      } catch (error) {
+        console.error('Error al tomar foto:', error);
+        Alert.alert('Error', 'No se pudo tomar la foto');
+      }
     }
-
-    const visibleCards = ITEMS_DATA.slice(currentIndex, currentIndex + 2);
-    
-    return visibleCards
-      .map((item, index, arr) => (
-        <SwipeCard
-          key={`${item.id}-${currentIndex}`}
-          item={item}
-          onSwipeLeft={handleSwipeLeft}
-          onSwipeRight={handleSwipeRight}
-          isTop={index === 0}
-        />
-      ))
-      .reverse();
   };
+
+  const toggleCameraFacing = () => {
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  };
+
+  const goToGallery = () => {
+    router.push('/gallery');
+  };
+
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.message}>Cargando...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.message}>
+          Necesitamos permiso para usar la cámara
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
+          <Text style={styles.buttonText}>Dar permiso</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Desliza las tarjetas</Text>
-        <Link href="/likes" style={styles.viewLikesButton}>
-          <Text style={styles.viewLikesText}>
-            Ver Likes ({likedItems.length})
-          </Text>
-        </Link>
-      </View>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => Alert.alert('Salir', '¿Cerrar la app?')}
+          >
+            <Ionicons name="close" size={32} color="white" />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.cardsContainer}>{renderCards()}</View>
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.galleryButton}
+            onPress={goToGallery}
+          >
+            <Ionicons name="images" size={32} color="white" />
+          </TouchableOpacity>
 
-      <View style={styles.instructions}>
-        <Text style={styles.instructionsText}>← Desliza para descartar</Text>
-        <Text style={styles.instructionsText}>Desliza para aceptar →</Text>
-      </View>
+          <TouchableOpacity
+            style={styles.captureButton}
+            onPress={takePicture}
+          >
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.flipButton}
+            onPress={toggleCameraFacing}
+          >
+            <Ionicons name="camera-reverse" size={32} color="white" />
+          </TouchableOpacity>
+        </View>
+      </CameraView>
+
+      <Text style={styles.hint}>Ronda de práctica</Text>
+      <Text style={styles.subHint}>
+        No se enviará a nadie. ¡Es solo para divertirse!
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  container: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
+  camera: { flex: 1 },
+  topBar: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+  bottomBar: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 30,
   },
-  viewLikesButton: {
-    padding: 8,
+  galleryButton: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+  captureButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  viewLikesText: {
+  captureButtonInner: {
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    backgroundColor: 'white',
+  },
+  flipButton: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+  hint: {
+    position: 'absolute',
+    bottom: 150,
+    alignSelf: 'center',
+    color: 'white',
     fontSize: 16,
-    color: '#00bfa5',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  cardsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  subHint: {
+    position: 'absolute',
+    bottom: 130,
+    alignSelf: 'center',
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
   },
-  noMoreCards: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  message: {
+    textAlign: 'center',
+    paddingBottom: 10,
+    color: 'white',
+    fontSize: 18,
   },
-  noMoreCardsText: {
-    fontSize: 22,
-    color: '#999',
+  button: {
+    backgroundColor: '#00bfa5',
+    padding: 15,
+    borderRadius: 10,
+    margin: 20,
   },
-  instructions: {
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  instructionsText: {
-    fontSize: 14,
-    color: '#999',
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
